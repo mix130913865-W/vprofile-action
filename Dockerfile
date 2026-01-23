@@ -6,7 +6,7 @@ COPY . .
 RUN mvn -B -q package -DskipTests
 
 # ---------- Runtime stage ----------
-FROM tomcat:9.0- jdk11-temurin
+FROM tomcat:9.0-jdk11-temurin
 
 LABEL project="Vprofile"
 LABEL author="Imran"
