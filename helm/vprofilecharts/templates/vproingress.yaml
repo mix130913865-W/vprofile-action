@@ -1,19 +1,20 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: vpro-ingress
+  name: vpro-ingress                # Ingress 名稱，用來管理對外 HTTP/HTTPS 流量
   annotations:
-    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/use-regex: "true"  
+                                     # 允許 path 支援正則表達式（regex）
 spec:
-  ingressClassName: nginx
+  ingressClassName: nginx           # 指定使用的 Ingress Controller（這裡是 nginx）
   rules:
-  - host: vprofile.lifecoachvida.com
+  - host: vprofile.lifecoachvida.com # 訪問的域名
     http:
       paths:
-      - path: /
-        pathType: Prefix
+      - path: /                     # URL path
+        pathType: Prefix            # 前綴匹配，/api -> /api/xxx 都會匹配
         backend:
           service:
-            name: my-app
+            name: my-app            # 對應的 ClusterIP Service
             port:
-              number: 8080
+              number: 8080          # Service port
