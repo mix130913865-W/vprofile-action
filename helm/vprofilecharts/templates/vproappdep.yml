@@ -1,29 +1,51 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: vproapp
-  labels: 
-    app: vproapp
+  name: vproapp                  # Application Deployment 名稱
+  labels:
+    app: vproapp                 # Label，供 Service / Selector 使用
 spec:
-  replicas: 1
+  replicas: 1                    # Pod 副本數（可搭配 HPA 水平擴展）
   selector:
     matchLabels:
-      app: vproapp
+      app: vproapp               # 確保 Deployment 管理正確的 Pods
   template:
     metadata:
       labels:
-        app: vproapp
+        app: vproapp             # Pod labels，需與 Service selector 一致
     spec:
       containers:
-      - name: vproapp
-        image: {{ .Values.appimage}}:{{ .Values.apptag }}
+      - name: vproapp             # Application container
+        image: {{ .Values.appimage }}:{{ .Values.apptag }}
+                                 # Helm template 參數化 image 與 tag
+                                 # 方便 CI/CD 與環境區分
         ports:
-        - name: vproapp-port
-          containerPort: 8080
+        - name: vproapp-port      # Named port，供 Service targetPort 使用
+          containerPort: 8080     # Application 監聽的 HTTP port
+
       initContainers:
+      # 等待 Database Service（vprodb）DNS 可解析
       - name: init-mydb
-        image: busybox
-        command: ['sh', '-c', 'until nslookup vprodb.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for mydb; sleep 2; done;']
+        image: busybox            # 輕量 image，適合 initContainer
+        command:
+          - sh
+          - -c
+          - >
+            until nslookup vprodb.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local;
+            do
+              echo waiting for mydb;
+              sleep 2;
+            done;
+
+      # 等待 Cache Service（Memcached）DNS 可解析
       - name: init-memcache
         image: busybox
-        command: ['sh', '-c', 'until nslookup vprocache01.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for mydb; sleep 2; done;']
+        command:
+          - sh
+          - -c
+          - >
+            until nslookup vprocache01.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local;
+            do
+              echo waiting for memcache;
+              sleep 2;
+            done;
