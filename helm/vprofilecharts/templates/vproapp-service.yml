@@ -1,12 +1,16 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: my-app
+  name: my-app                 # Service 名稱，提供 cluster 內部存取
+                               
 spec:
+  type: ClusterIP              # Service type：僅限 Kubernetes cluster內部使用
+                               # Backend application 常用型態
+
   ports:
-  - port: 8080
-    protocol: TCP
-    targetPort: 8080
+  - port: 8080                 # Service port（cluster 內對外暴露的 port）
+    targetPort: 8080           # Pod 內實際接收流量的 port
+    protocol: TCP              # HTTP / REST API 使用 TCP
+
   selector:
-    app: vproapp
-  type: ClusterIP
+    app: vproapp               # 將流量轉發到 label app=vproapp 的 Pods
