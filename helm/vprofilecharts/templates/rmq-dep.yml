@@ -1,31 +1,35 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: vpromq01
+  name: vpromq01                # Deployment 名稱（管理 RabbitMQ Pod）
   labels:
-    app: vpromq01
+    app: vpromq01               # Label，供 Service selector 使用
 spec:
+  replicas: 1                   # RabbitMQ 單節點（non-cluster mode）
+                                # Production 常用 StatefulSet + cluster
+
   selector:
     matchLabels:
-      app: vpromq01
-  replicas: 1
+      app: vpromq01              # 確保 Deployment 管理正確的 Pods
+
   template:
     metadata:
       labels:
-        app: vpromq01
+        app: vpromq01            # Pod labels，需與 Service selector 一致
     spec:
       containers:
-      - name: vpromq01
-        image: rabbitmq
+      - name: vpromq01           # Container 名稱
+        image: rabbitmq          # 官方 RabbitMQ image（latest）
+                                 # Production 建議指定版本，例如 rabbitmq:3.12
         ports:
-        - name: vpromq01-port
-          containerPort: 15672
-        env: 
-         - name: RABBITMQ_DEFAULT_PASS
-           valueFrom:
-             secretKeyRef:
-               name: app-secret
-               key: rmq-pass
-         - name: RABBITMQ_DEFAULT_USER
-           value: "guest"
-
+        - name: vpromq01-port    # Named port，供 Service targetPort 使用
+          containerPort: 15672   # RabbitMQ Management UI port
+                                 # AMQP 連線實際使用的是 5672
+        env:
+        - name: RABBITMQ_DEFAULT_PASS
+          valueFrom:
+            secretKeyRef:
+              name: app-secret   # Kubernetes Secret 名稱
+              key: rmq-pass      # Secret 中的 key（RabbitMQ 密碼）
+        - name: RABBITMQ_DEFAULT_USER
+          value: "guest"         # RabbitMQ 預設使用者
