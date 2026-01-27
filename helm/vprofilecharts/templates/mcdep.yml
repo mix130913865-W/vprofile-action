@@ -1,22 +1,26 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: vpromc
+  name: vpromc                 # Deployment 名稱（管理 Memcached Pods）
   labels:
-    app: vpromc
+    app: vpromc                # Label，用於 Service selector 與資源識別
 spec:
+  replicas: 1                  # Pod 副本數量（Memcached 可水平擴展）
+                               # Production 通常 >1（stateless）
+
   selector:
     matchLabels:
-      app: vpromc
-  replicas: 1
+      app: vpromc              # 確保 Deployment 只管理指定 label 的 Pods
+
   template:
     metadata:
       labels:
-        app: vpromc
+        app: vpromc            # Pod labels，需與 Service selector 一致
     spec:
       containers:
-      - name: vpromc
-        image: memcached
+      - name: vpromc            # Container 名稱
+        image: memcached        # 使用官方 Memcached image（latest by default）
+                                # Production 建議指定 tag，例如 memcached:1.6.x
         ports:
-        - name: vpromc-port
-          containerPort: 11211
+        - name: vpromc-port     # Named port，供 Service 的 targetPort 使用
+          containerPort: 11211  # Container 內 Memcached 監聽的 port
