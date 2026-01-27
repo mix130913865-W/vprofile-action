@@ -1,38 +1,46 @@
 name: vprofile-actions
 
+# 觸發條件：手動觸發 workflow
 on:
   workflow_dispatch:
 
+# 全域環境變數設定
 env:
-  AWS_REGION: us-east-1
-  ECR_REPOSITORY: vprofileapp
-  EKS_CLUSTER: vprofile-eks
+  AWS_REGION: us-east-1          # AWS 區域
+  ECR_REPOSITORY: vprofileapp    # ECR (Elastic Container Registry) repository 名稱
+  EKS_CLUSTER: vprofile-eks      # EKS (Elastic Kubernetes Service) 叢集名稱
 
 jobs:
+  # ------------------ 測試階段 ------------------
   testing:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest       # 使用 Ubuntu 作為 runner
 
     steps:
+      # Step 1: 取出程式碼
       - name: Code checkout
         uses: actions/checkout@v4
 
-      # Setup Java (Maven + SonarScanner 都可用)
+      # Step 2: 設定 Java 環境 (支援 Maven 和 SonarScanner)
       - name: Set Java 11
         uses: actions/setup-java@v3
         with:
           distribution: temurin
           java-version: "11"
-          cache: maven
+          cache: maven   # 啟用 Maven 快取，加速 build
 
+      # Step 3: 執行 Maven 單元測試
       - name: Maven test
         run: mvn test
 
+      # Step 4: 執行 Checkstyle 進行程式碼風格檢查
       - name: Checkstyle
         run: mvn checkstyle:checkstyle
 
+      # Step 5: 設定 SonarScanner
       - name: Setup SonarScanner
         uses: warchant/setup-sonar-scanner@v7
 
+      # Step 6: 執行 SonarQube 分析
       - name: SonarQube Scan
         run: |
           sonar-scanner \
@@ -46,6 +54,7 @@ jobs:
             -Dsonar.java.checkstyle.reportPaths=target/checkstyle-result.xml \
             -Dsonar.java.binaries=target
 
+      # Step 7: 檢查 SonarQube Quality Gate
       - name: SonarQube Quality Gate check
         uses: sonarsource/sonarqube-quality-gate-action@master
         timeout-minutes: 5
@@ -53,14 +62,17 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_URL }}
 
+  # ------------------ 建置並推送 Docker 映像檔 ------------------
   build_and_publish:
-    needs: testing
+    needs: testing            # 依賴 testing job 成功
     runs-on: ubuntu-latest
 
     steps:
+      # Step 1: 取出程式碼
       - name: Code checkout
         uses: actions/checkout@v4
 
+      # Step 2: 建置並推送 Docker image 到 ECR
       - name: Build & Push image to ECR
         uses: appleboy/docker-ecr-action@master
         with:
@@ -69,19 +81,22 @@ jobs:
           registry: ${{ secrets.REGISTRY }}
           repo: ${{ env.ECR_REPOSITORY }}
           region: ${{ env.AWS_REGION }}
-          tags: latest,${{ github.run_number }}
+          tags: latest,${{ github.run_number }}   # tag 可同時使用 latest 與 run number
           daemon_off: false
           dockerfile: Dockerfile
-          context: .
+          context: .   # Docker build context
 
+  # ------------------ 部署到 EKS ------------------
   deploy_to_eks:
-    needs: build_and_publish
+    needs: build_and_publish   # 依賴 build_and_publish 成功
     runs-on: ubuntu-latest
 
     steps:
+      # Step 1: 取出程式碼
       - name: Code checkout
         uses: actions/checkout@v4
 
+      # Step 2: 設定 AWS 認證
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -89,12 +104,14 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      # Step 3: 更新 kubeconfig 以連接 EKS 叢集
       - name: Update kubeconfig
         run: |
           aws eks update-kubeconfig \
             --region ${{ env.AWS_REGION }} \
             --name ${{ env.EKS_CLUSTER }}
 
+      # Step 4: 登入 ECR 並建立 Kubernetes secret
       - name: Login to ECR (K8s secret)
         run: |
           kubectl delete secret regcred --ignore-not-found
@@ -103,6 +120,7 @@ jobs:
             --docker-username=AWS \
             --docker-password=$(aws ecr get-login-password)
 
+      # Step 5: 使用 Helm 部署到 EKS
       - name: Deploy Helm chart
         uses: bitovi/github-actions-deploy-eks-helm@v1.2.8
         with:
@@ -110,7 +128,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
           cluster-name: ${{ env.EKS_CLUSTER }}
-          chart-path: helm/vprofilecharts
+          chart-path: helm/vprofilecharts    # Helm chart 目錄
           namespace: default
-          name: vprofile-stack
-          values: appimage=${{ secrets.REGISTRY }}/${{ env.ECR_REPOSITORY }},apptag=${{ github.run_number }}
+          name: vprofile-stack               # release 名稱
+          values: appimage=${{ secrets.REGISTRY }}/${{ env.ECR_REPOSITORY }},apptag=${{ github.run_number }}  # 透過 values 覆蓋 image 與 tag
