@@ -1,32 +1,30 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: vprodb
+  name: vprodb                  # Deployment 名稱（管理 MySQL Pod）
   labels:
-    app: vprodb
+    app: vprodb                 # Label，供 Service selector 使用
 spec:
+  replicas: 1                   # MySQL 單節點（non-HA）
+                                # Production 通常使用 StatefulSet
   selector:
     matchLabels:
-      app: vprodb
-  replicas: 1
+      app: vprodb               # 確保 Deployment 管理正確的 Pods
   template:
     metadata:
       labels:
-        app: vprodb
+        app: vprodb             # Pod labels，需與 Service selector 一致
     spec:
       containers:
-      - name: vprodb
-        image: vprofile/vprofiledb 
+      - name: vprodb             # MySQL container
+        image: vprofile/vprofiledb
+                                 # Custom MySQL image（含 schema / init data）
         ports:
-        - name: vprodb-port
-          containerPort: 3306
-        env: 
-         - name: MYSQL_ROOT_PASSWORD
-           valueFrom:
-             secretKeyRef:
-               name: app-secret
-               key: db-pass
-#        env:
-#         - name: MYSQL_ROOT_PASSWORD
-#           value: "vprodbpass"
-
+        - name: vprodb-port      # Named port，供 Service targetPort 使用
+          containerPort: 3306    # MySQL default port
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secret   # Kubernetes Secret 名稱
+              key: db-pass       # Secret key，存放 DB root password
