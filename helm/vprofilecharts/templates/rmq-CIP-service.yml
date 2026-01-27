@@ -1,12 +1,16 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: vpromq01
+  name: vpromq01               # Service 名稱，用於 cluster 內部 DNS 存取
+                               # e.g. vpromq01.default.svc.cluster.local
 spec:
+  type: ClusterIP              # Service type：僅限cluster內部使用
+
   ports:
-  - port: 5672
-    targetPort: vpromq01-port
-    protocol: TCP
+  - port: 5672                 # Service port（RabbitMQ AMQP default port）
+    targetPort: vpromq01-port  # Pod 內實際接收流量的 port（named port）
+                               # Pod 需定義對應的 port name
+    protocol: TCP              # AMQP 使用 TCP 傳輸
+
   selector:
-    app: vpromq01
-  type: ClusterIP
+    app: vpromq01              # 將流量導向 label app=vpromq01 的 Pod
